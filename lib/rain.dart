@@ -11,10 +11,10 @@ class RainWidget extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) => RainCanvas(
         canvasDimensions: (constraints.maxWidth, constraints.maxHeight),
-        dropletDensity: 1000,
+        dropletDensity: 200,
         dropletLength: 50,
         dropletTime: 50,
-        dropletAngle: 60,
+        dropletAngle: 65,
       ),
     );
   }
@@ -110,7 +110,7 @@ class Droplet {
     required this.direction,
     required this.canvasDimensions,
   }) {
-    position = _getRandomStartPosition(canvasDimensions);
+    position = _getRandomStartPosition();
   }
 
   void draw(Canvas canvas) {
@@ -123,31 +123,17 @@ class Droplet {
 
   void update() {
     position = position + Offset.fromDirection(direction, length);
-    // if (position.dy > canvasDimensions.$2 ||
-    //     position.dx > canvasDimensions.$1) {
-    //   // reset droplet position
-    //   print("repositioning droplet");
-    //   position = _getRandomStartPosition(canvasDimensions);
-    // }
-    if (position.dx < 0) {
-      // direction is towards left
-      position = Offset(canvasDimensions.$1, position.dy);
-    } else if (position.dx > canvasDimensions.$1) {
-      // direction is towards right
-      position = Offset(0, position.dy);
-    } else if (position.dy > canvasDimensions.$2) {
-      // exceeded canvas height
-      position = _getRandomStartPosition(canvasDimensions);
+    if (position.dy < 0 || position.dx > canvasDimensions.$1 || position.dy > canvasDimensions.$2) {
+      position = _getRandomStartPosition();
     }
-    // print({hashCode, position});
   }
 
   /// Starting position may vary from
-  /// - y-axis: -45 to -15
+  /// - y-axis: -100 to -0
   /// - x-axis: 0 to canvas.width
-  static Offset _getRandomStartPosition((double, double) canvasDimension) {
-    final yRange = (0, -canvasDimension.$1);
-    final xRange = (0, canvasDimension.$2);
+  Offset _getRandomStartPosition() {
+    final xRange = (-canvasDimensions.$2/tan(direction), canvasDimensions.$1);
+    const yRange = (0, -100);
     return Offset(
       rnd.nextDouble() * (xRange.$2 - xRange.$1) + xRange.$1,
       rnd.nextDouble() * (yRange.$2 - yRange.$1) + yRange.$1,
