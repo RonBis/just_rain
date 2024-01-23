@@ -2,19 +2,42 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:just_rain/data/droplet.dart';
+import 'package:just_rain/data/droplet_config.dart';
 
 class RainWidget extends StatelessWidget {
   const RainWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => RainCanvas(
-        canvasDimensions: (constraints.maxWidth, constraints.maxHeight),
-        dropletDensity: 200,
-        dropletLength: 50,
-        dropletTime: 50,
-        dropletAngle: 65,
+    return Scaffold(
+      body: LayoutBuilder(
+        builder: (context, constraints) => Stack(
+          children: [
+            RainCanvas(
+              canvasSize: Size(constraints.maxWidth, constraints.maxHeight),
+              dropletConfig: DropletConfig(
+                density: 400,
+                length: 50,
+                angle: 65 * pi / 180,
+                time: 50,
+                paint: Paint()
+                  ..color = Colors.white
+                  ..style = PaintingStyle.fill,
+              ),
+            ),
+            const Center(
+              child: Text(
+                "Just Rain",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: "Amatic",
+                  fontSize: 34,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -23,20 +46,12 @@ class RainWidget extends StatelessWidget {
 class RainCanvas extends StatefulWidget {
   const RainCanvas({
     super.key,
-    required this.canvasDimensions,
-    required this.dropletDensity,
-    this.dropletLength = 10,
-    this.dropletTime = 10,
-    this.dropletAngle = 70,
+    required this.canvasSize,
+    required this.dropletConfig,
   });
 
-  final (double, double) canvasDimensions;
-  final int dropletDensity;
-  final double dropletLength;
-  /// In milliseconds
-  final int dropletTime;
-  /// In degrees
-  final double dropletAngle;
+  final Size canvasSize;
+  final DropletConfig dropletConfig;
 
   @override
   State<RainCanvas> createState() => _RainCanvasState();
@@ -49,20 +64,17 @@ class _RainCanvasState extends State<RainCanvas> {
   @override
   void initState() {
     super.initState();
-    timer = Timer.periodic(Duration(milliseconds: widget.dropletTime), (timer) {
+    var config = widget.dropletConfig;
+    timer = Timer.periodic(Duration(milliseconds: config.time), (timer) {
       setState(() {
         for (var droplet in droplets) {
-          droplet.update();
+          droplet.update(widget.canvasSize, config);
         }
       });
     });
     droplets = List.generate(
-      widget.dropletDensity,
-      (index) => Droplet(
-        length: widget.dropletLength,
-        direction: widget.dropletAngle * pi / 180,
-        canvasDimensions: widget.canvasDimensions,
-      ),
+      config.density,
+      (index) => Droplet(widget.canvasSize, config.angle),
     );
   }
 
@@ -74,71 +86,33 @@ class _RainCanvasState extends State<RainCanvas> {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: RainPainter(droplets));
+    return CustomPaint(
+      painter: RainPainter(
+        droplets: droplets,
+        config: widget.dropletConfig,
+      ),
+    );
   }
 }
 
 class RainPainter extends CustomPainter {
   final List<Droplet> droplets;
+  final DropletConfig config;
 
-  RainPainter(this.droplets);
+  RainPainter({required this.droplets, required this.config});
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.drawColor(Colors.black, BlendMode.src);
     for (var droplet in droplets) {
-      droplet.draw(canvas);
+      canvas.drawLine(
+        droplet.position,
+        droplet.position + Offset.fromDirection(config.angle, config.length),
+        config.paint,
+      );
     }
   }
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
-
-class Droplet {
-  final paint = Paint()
-    ..color = Colors.white
-    ..style = PaintingStyle.fill;
-  final double length;
-  final double direction;
-
-  /// (width, height)
-  final (double, double) canvasDimensions;
-  late Offset position;
-
-  Droplet({
-    required this.length,
-    required this.direction,
-    required this.canvasDimensions,
-  }) {
-    position = _getRandomStartPosition();
-  }
-
-  void draw(Canvas canvas) {
-    canvas.drawLine(
-      position,
-      position + Offset.fromDirection(direction, length),
-      paint,
-    );
-  }
-
-  void update() {
-    position = position + Offset.fromDirection(direction, length);
-    if (position.dy < 0 || position.dx > canvasDimensions.$1 || position.dy > canvasDimensions.$2) {
-      position = _getRandomStartPosition();
-    }
-  }
-
-  /// Starting position may vary from
-  /// - y-axis: -100 to -0
-  /// - x-axis: 0 to canvas.width
-  Offset _getRandomStartPosition() {
-    final xRange = (-canvasDimensions.$2/tan(direction), canvasDimensions.$1);
-    const yRange = (0, -100);
-    return Offset(
-      rnd.nextDouble() * (xRange.$2 - xRange.$1) + xRange.$1,
-      rnd.nextDouble() * (yRange.$2 - yRange.$1) + yRange.$1,
-    );
-  }
-}
-
-final rnd = Random();
